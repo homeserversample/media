@@ -1,0 +1,68 @@
+# originally from here : https://code.mendhak.com/run-docker-through-vpn-container/
+version: "3"
+services:
+#
+  gluetun:
+    image: qmcgaw/gluetun
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      - VPN_SERVICE_PROVIDER=mullvad
+      - VPN_TYPE=wireguard
+      - WIREGUARD_PRIVATE_KEY=
+      - WIREGUARD_ADDRESSES=
+      - SERVER_CITIES=
+    ports:
+      - 9091:9091/tcp       # transmission
+      - 51413:51413/tcp     # transmission
+      - 51413:51413/udp     # transmission
+      - 8989:8989           # sonarr
+      - 0.0.0.0:9696:9696           # prowlarr
+#
+  transmission:
+    image: lscr.io/linuxserver/transmission:latest
+    container_name: transmission
+    network_mode: "service:gluetun"  # <-- important bit, don't forget
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=Etc/UTC
+      - TRANSMISSION_WEB_HOME= #optional
+      - USER= #optional
+      - PASS= #optional
+      - WHITELIST= #optional
+      - PEERPORT= #optional
+      - HOST_WHITELIST= #optional
+    volumes:
+      - ./config/transmission:/config
+      - ${SERVERS}/data/downloads:/downloads
+    restart: unless-stopped
+#
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    network_mode: "service:gluetun"  # <-- important bit, don't forget
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=Etc/UTC
+    volumes:
+      - ./config/sonarr:/config
+      - ${SERVERS}/data/downloads:/downloads
+      # - /path/to/tvseries:/tv #optional
+      # - /path/to/downloadclient-downloads:/downloads #optional
+    restart: unless-stopped
+#
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    network_mode: "service:gluetun"  # <-- important bit, don't forget
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=Etc/UTC
+    volumes:
+      - ./config/prowlarr:/config
+    restart: unless-stopped
